@@ -1,0 +1,29 @@
+/**
+ * Stage 3 — vision read, then Jev decision. One photo per request so the UI can
+ * show progress honestly and a single bad photo cannot fail the batch.
+ */
+import { NextResponse } from 'next/server';
+import { describePhoto } from '@/lib/openrouter';
+import { classifyWithJev } from '@/lib/jev';
+import { resolveKey, charge, fail } from '@/lib/api';
+import { VISION_COST_PER_PHOTO } from '@/lib/pricing';
+import { JEV_COST_PER_PHOTO } from '@/lib/jev';
+
+export const maxDuration = 60;
+
+export async function POST(req: Request) {
+  try {
+    const { photoId, dataUrl, caption } = await req.json();
+    if (!dataUrl) throw new Error('dataUrl is required');
+
+    const r = await resolveKey(req, 'openrouter');
+    const balance = await charge(r, VISION_COST_PER_PHOTO + JEV_COST_PER_PHOTO, 'classify photo');
+
+    const read = await describePhoto(r.key, dataUrl);
+    const decision = await classifyWithJev(r.key, read, caption);
+
+    return NextResponse.json({ photoId, ...read, ...decision, balance });
+  } catch (e) {
+    return fail(e);
+  }
+}

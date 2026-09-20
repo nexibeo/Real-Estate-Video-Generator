@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="900" height="340" fill="#0B0D10"/>
+  <text x="30" y="36" fill="#E8EBEF" font-size="18" font-weight="600">One shot language, two engines</text>
+  <text x="30" y="57" fill="#8A94A3" font-size="12">A room's camera move is decided once. The free tier renders it as geometry; the paid tier says it in words.</text>
+
+  <g font-size="12">
+    <rect x="30" y="80" width="250" height="52" rx="7" fill="#1A1F26" stroke="#C8A24A" stroke-opacity="0.5"/>
+    <text x="46" y="103" fill="#C8A24A" font-weight="600">roomType = "kitchen"</text>
+    <text x="46" y="120" fill="#8A94A3" font-size="11">+ camera_depth, primary_axis from Jev</text>
+
+    <path d="M155,132 L155,160" stroke="#C8A24A" stroke-width="1.6"/>
+    <rect x="30" y="160" width="250" height="44" rx="7" fill="#12151A" stroke="#262C35"/>
+    <text x="46" y="187" fill="#E8EBEF">intent = truck_right</text>
+
+    <path d="M280,182 L330,182" stroke="#8A94A3" stroke-width="1.4"/>
+    <path d="M280,182 C 300,182 300,110 330,110" stroke="#8A94A3" stroke-width="1.4" fill="none"/>
+    <path d="M280,182 C 300,182 300,254 330,254" stroke="#8A94A3" stroke-width="1.4" fill="none"/>
+
+    <rect x="335" y="82" width="530" height="86" rx="7" fill="#12151A" stroke="#4ADE80" stroke-opacity="0.35"/>
+    <text x="352" y="105" fill="#4ADE80" font-weight="600" font-size="12">Free — kenburns.ts</text>
+    <text x="352" y="126" fill="#8A94A3" font-size="11">scale 1.06 → 1.09, dx sweeps ±0.045 of frame width, cubic ease in and out</text>
+    <text x="352" y="145" fill="#8A94A3" font-size="11">drawn per frame onto the canvas — no model, no key, no cost</text>
+    <text x="352" y="161" fill="#8A94A3" font-size="11">cannot hallucinate, because there is nothing to hallucinate with</text>
+
+    <rect x="335" y="226" width="530" height="86" rx="7" fill="#12151A" stroke="#C8A24A" stroke-opacity="0.35"/>
+    <text x="352" y="249" fill="#C8A24A" font-weight="600" font-size="12">Paid — prompts.ts</text>
+    <text x="352" y="270" fill="#8A94A3" font-size="11">"slow lateral truck to the right across the counter line already in frame,</text>
+    <text x="352" y="286" fill="#8A94A3" font-size="11">cabinetry held parallel to the frame edge" + shared prefix and constraints</text>
+    <text x="352" y="303" fill="#8A94A3" font-size="11">describes the lens, never the room — naming absent objects is how they get invented</text>
+  </g>
+</svg>
