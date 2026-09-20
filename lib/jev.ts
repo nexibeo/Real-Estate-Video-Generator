@@ -136,5 +136,13 @@ export async function classifyWithJev(
   };
 }
 
-/** Jev bills input only, at $0.042 per 1M tokens. A photo's call is ~1.5k tokens. */
-export const JEV_COST_PER_PHOTO = 0.000065;
+/**
+ * Jev bills input only, at $0.042 per 1M tokens, and output is free.
+ *
+ * Measured: a six-option version of this call ran 759 input tokens for
+ * $0.0000319. The real question set carries all 25 room descriptions, so this
+ * allows for roughly 2k tokens. It is an estimate, and the 10x credit markup
+ * absorbs a wide error — but it is the number the pricing page quotes, so it
+ * is kept close.
+ */
+export const JEV_COST_PER_PHOTO = 0.00009;

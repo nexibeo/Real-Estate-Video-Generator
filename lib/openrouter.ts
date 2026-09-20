@@ -7,8 +7,8 @@ import type { Listing, NarrationStyle, VisionRead } from './types';
 const CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
-export const VISION_MODEL = 'google/gemini-3-flash';
-export const SCRIPT_MODEL = 'google/gemini-3-flash';
+export const VISION_MODEL = 'google/gemini-2.5-flash';
+export const SCRIPT_MODEL = 'google/gemini-2.5-flash';
 /** Free tier of Fish Audio's S2.1 Pro. No production latency guarantee, but it costs nothing. */
 export const FREE_TTS_MODEL = 'fish-audio/s2.1-pro-free:free';
 export const PAID_TTS_MODEL = 'fish-audio/s2.1-pro';
@@ -147,12 +147,19 @@ export async function synthesize(
   apiKey: string,
   input: string,
   model: string,
-  voice: string,
+  voice?: string,
 ): Promise<ArrayBuffer> {
   const res = await fetch(SPEECH_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...REFERER },
-    body: JSON.stringify({ model, input, voice, response_format: 'mp3' }),
+    // Fish Audio rejects an unknown voice name outright, so "no preference"
+    // has to mean omitting the field rather than sending a placeholder.
+    body: JSON.stringify({
+      model,
+      input,
+      response_format: 'mp3',
+      ...(voice && voice !== 'default' ? { voice } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`TTS ${res.status}: ${(await res.text()).slice(0, 300)}`);
   return res.arrayBuffer();

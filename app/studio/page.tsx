@@ -117,6 +117,7 @@ export default function Studio() {
     const { shots: planned } = planShots(from, photos, {
       maxClips: options.maxClips,
       durationS: options.durationS,
+      expectedBedrooms: Number(listing.beds) || undefined,
     });
     setShots(planned);
   }

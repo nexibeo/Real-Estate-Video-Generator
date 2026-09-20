@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { text, voice = 'default', free = true } = await req.json();
+    const { text, voice, free = true } = await req.json();
     if (!text?.trim()) throw new Error('text is required');
 
     const r = await resolveKey(req, 'openrouter');

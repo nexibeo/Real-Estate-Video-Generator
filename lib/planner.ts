@@ -31,7 +31,34 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return shared / (a.size + b.size - shared || 1);
 }
 
-export function groupByRoom(analyses: Analysis[], threshold = 0.34): Map<string, Analysis[]> {
+/**
+ * Cluster one room type's photos into physical rooms at a given threshold.
+ * Higher threshold = harder to merge = more separate rooms.
+ */
+function clusterOne(items: Analysis[], threshold: number): Analysis[][] {
+  const clusters: { tokens: Set<string>; items: Analysis[] }[] = [];
+  for (const item of [...items].sort((x, y) => y.suitability - x.suitability)) {
+    const t = tokens(item);
+    let best: { c: (typeof clusters)[0]; score: number } | null = null;
+    for (const c of clusters) {
+      const score = jaccard(t, c.tokens);
+      if (score >= threshold && (!best || score > best.score)) best = { c, score };
+    }
+    if (best) {
+      best.c.items.push(item);
+      for (const tok of t) best.c.tokens.add(tok);
+    } else {
+      clusters.push({ tokens: t, items: [item] });
+    }
+  }
+  return clusters.map((c) => c.items);
+}
+
+export function groupByRoom(
+  analyses: Analysis[],
+  threshold = 0.34,
+  expectedBedrooms?: number,
+): Map<string, Analysis[]> {
   const groups = new Map<string, Analysis[]>();
   const byType = new Map<RoomType, Analysis[]>();
   for (const a of analyses) {
@@ -46,22 +73,23 @@ export function groupByRoom(analyses: Analysis[], threshold = 0.34): Map<string,
       groups.set(`${type}_1`, items);
       continue;
     }
-    const clusters: { tokens: Set<string>; items: Analysis[] }[] = [];
-    for (const item of [...items].sort((x, y) => y.suitability - x.suitability)) {
-      const t = tokens(item);
-      let best: { c: (typeof clusters)[0]; score: number } | null = null;
-      for (const c of clusters) {
-        const score = jaccard(t, c.tokens);
-        if (score >= threshold && (!best || score > best.score)) best = { c, score };
-      }
-      if (best) {
-        best.c.items.push(item);
-        for (const tok of t) best.c.tokens.add(tok);
-      } else {
-        clusters.push({ tokens: t, items: [item] });
+    let clusters = clusterOne(items, threshold);
+
+    /**
+     * Two bedrooms in one house describe alike — "beige room, bed, window" —
+     * so text similarity merges them and the tour silently loses a bedroom.
+     * Losing a room is much worse than showing one twice, and the listing
+     * already states how many there are, so where that count is known it is
+     * used: tighten the threshold until the clusters agree with it.
+     */
+    if (type === 'bedroom' && expectedBedrooms && expectedBedrooms > clusters.length) {
+      for (const t of [0.5, 0.62, 0.74, 0.86]) {
+        if (clusters.length >= expectedBedrooms || clusters.length >= items.length) break;
+        clusters = clusterOne(items, t);
       }
     }
-    clusters.forEach((c, i) => groups.set(`${type}_${i + 1}`, c.items));
+
+    clusters.forEach((c, i) => groups.set(`${type}_${i + 1}`, c));
   }
   return groups;
 }
@@ -69,6 +97,8 @@ export function groupByRoom(analyses: Analysis[], threshold = 0.34): Map<string,
 export interface PlanOptions {
   maxClips: number;
   durationS: Duration;
+  /** From the listing's "Bedrooms" field, when the user filled it in. */
+  expectedBedrooms?: number;
   minSuitability?: number;
 }
 
@@ -78,26 +108,28 @@ export function planShots(
   opts: PlanOptions,
 ): { shots: Shot[]; dropped: { photoId: string; reason: string }[] } {
   const dropped: { photoId: string; reason: string }[] = [];
+  // The room type is the only hard filter. A low `isPhotograph` used to drop a
+  // photo outright, which quietly threw away every new-build listing advertised
+  // with architectural renders — so it now only costs a photo the hero slot.
   const usable = analyses.filter((a) => {
     if (EXCLUDED_TYPES.includes(a.roomType)) {
       dropped.push({ photoId: a.photoId, reason: `classified as ${a.roomType}` });
       return false;
     }
-    if (a.isPhotograph < 0.5) {
-      dropped.push({ photoId: a.photoId, reason: 'not a photograph of a real place' });
-      return false;
-    }
     return true;
   });
 
-  const groups = groupByRoom(usable);
+  const groups = groupByRoom(usable, 0.34, opts.expectedBedrooms);
 
   // Hero photo per group, then rank groups so the cap keeps the right rooms.
   const candidates = [...groups.entries()].map(([key, items]) => {
     const hero = items.reduce((best, x) => {
       // People warp when a still is animated, so a photo with someone in it
       // loses to a clean one of the same room even if it is otherwise better.
-      const score = (a: Analysis) => a.suitability - a.peoplePresent * 1.5;
+      // A drawing loses to a photograph for the same reason — but only loses,
+      // never gets excluded: new-build listings are advertised with renders,
+      // and those are legitimate source material.
+      const score = (a: Analysis) => a.suitability - a.peoplePresent * 1.5 - (1 - a.isPhotograph) * 0.4;
       return score(x) > score(best) ? x : best;
     });
     const type = hero.roomType;
