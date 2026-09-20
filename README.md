@@ -76,7 +76,8 @@ because travel is what reveals that a still photograph has no real parallax.
 
 | | Free | Your own keys | Credits |
 |---|---|---|---|
-| **Cost** | nothing | provider cost (~$0.03 / video) | 10× provider cost (~$0.30 / video) |
+| **Cost** | nothing | provider cost | 10× provider cost |
+| **8-shot video** | **$0.00** | **$0.98** | **$9.81** |
 | **Keys needed** | none | OpenRouter + Replicate | none |
 | **Room detection** | you label them | automatic | automatic |
 | **Motion** | Ken Burns, in-browser | AI image-to-video | AI image-to-video |
@@ -90,7 +91,13 @@ clip that quietly bends a doorframe, and for a lot of listings it is the better 
 
 Buy $10, $20 or $50. No subscription, nothing renews, nothing expires. One credit is one US cent
 of charge, and every job shows its price before it spends anything. The `/pricing` page has a live
-estimator that uses the same cost model the studio charges from.
+estimator driven by the same cost model the studio charges from.
+
+**Worth knowing before you launch:** at a flat 10× markup an eight-shot video on the *cheapest*
+AI engine lands at about **$9.81**, so a $10 pack buys exactly one. Video generation dominates
+everything else in the bill — the room reading and the entire voiceover come to about two cents
+together. If the packs should buy more than one video each, the lever is the markup
+(`MARKUP` in `lib/pricing.ts`), not the pack sizes.
 
 ---
 
@@ -98,16 +105,23 @@ estimator that uses the same cost model the studio charges from.
 
 Set per job — a draft to check the shot list costs cents; a hero listing can have the good model.
 
-| Engine | Per second | Max | Good for |
-|---|---|---|---|
-| Ken Burns | free | 15s | drafts, and listings where motion beats generation |
-| `wan-video/wan-2.2-i2v-fast` | $0.020 | 10s | cheapest real image-to-video |
-| `wan-video/wan-2.5-i2v` | $0.050 | 10s | the standard choice |
-| `kwaivgi/kling-v3-video` | $0.100 | 15s | best motion; the only one that reaches 15s |
-| `xai/grok-imagine-video` | $0.050 | 10s | xAI's model, via a real API |
+| Engine | Per second | Length | 8-shot video, 6s each | Good for |
+|---|---|---|---|---|
+| Ken Burns | free | 1–15s | **free** | drafts, and listings where motion beats generation |
+| `wan-video/wan-2.2-i2v-fast` | $0.020 | 5–7s | $0.98 | cheapest real image-to-video |
+| `wan-video/wan-2.5-i2v` | $0.050 | 5–10s | $2.42 | the standard choice |
+| `kwaivgi/kling-v3-video` | $0.100 | 3–15s | $4.82 | best motion; reaches 15s comfortably |
+| `xai/grok-imagine-video` | $0.050 | 1–15s | $2.42 | xAI's model, via a real API |
 
-> Per-second prices are Replicate's published rates at the time of writing and they change.
-> `lib/replicate.ts` is the single place to correct them.
+Length bounds, the image field name and negative-prompt support were read from each model's own
+OpenAPI schema rather than from documentation — they vary more than you would expect. Wan 2.2 Fast
+takes a frame count (81–121 at 16fps), which is why it cannot reach the 10s or 15s tiers at all;
+the app clamps and charges for what the model will actually produce.
+
+> The per-second **prices** are the one thing not machine-checked — Replicate does not expose them
+> through the API. They are its published rates at the time of writing. Verify them against
+> [replicate.com/pricing](https://replicate.com/pricing) before charging anyone, because these
+> numbers set the credit price. `lib/replicate.ts` is the single place to correct them.
 
 ---
 

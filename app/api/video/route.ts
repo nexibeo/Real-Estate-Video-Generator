@@ -9,7 +9,7 @@
  * the user's property is left on our storage after the clip is made.
  */
 import { NextResponse } from 'next/server';
-import { startPrediction, getPrediction, outputUrl, VIDEO_MODELS } from '@/lib/replicate';
+import { startPrediction, getPrediction, outputUrl, VIDEO_MODELS, clampDuration } from '@/lib/replicate';
 import { resolveKey, charge, fail, ApiError } from '@/lib/api';
 
 export const maxDuration = 60;
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     if (model.usdPerSecond === 0) throw new ApiError('Ken Burns renders in the browser, not here', 400);
 
     const r = await resolveKey(req, 'replicate');
-    const seconds = Math.min(durationS, model.maxDurationS);
+    const seconds = clampDuration(model, durationS);
     const balance = await charge(r, model.usdPerSecond * seconds, `clip — ${model.label}`);
 
     const p = await startPrediction(r.key, modelSlug, imageUrl, prompt, seconds);

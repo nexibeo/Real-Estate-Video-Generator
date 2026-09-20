@@ -4,7 +4,7 @@
  * 1 credit = 1 US cent, so a $10 top-up is 1000 credits and the arithmetic
  * stays legible to the person spending it. Nothing expires; nothing renews.
  */
-import { VIDEO_MODELS } from './replicate';
+import { VIDEO_MODELS, clampDuration } from './replicate';
 import { JEV_COST_PER_PHOTO } from './jev';
 import type { Duration, JobOptions } from './types';
 
@@ -50,13 +50,15 @@ export function estimate(
     });
   }
 
-  const videoUsd = model.usdPerSecond * opts.durationS * shotCount;
+  // Charge for what the model will actually make, not what was asked for.
+  const seconds = clampDuration(model, opts.durationS);
+  const videoUsd = model.usdPerSecond * seconds * shotCount;
   lines.push({
     label: model.usdPerSecond === 0 ? 'Ken Burns render' : `Video — ${model.label}`,
     detail:
       model.usdPerSecond === 0
         ? `${shotCount} shots rendered in your browser`
-        : `${shotCount} shots x ${opts.durationS}s x $${model.usdPerSecond.toFixed(3)}/s`,
+        : `${shotCount} shots x ${seconds}s x $${model.usdPerSecond.toFixed(3)}/s`,
     usd: videoUsd,
   });
 

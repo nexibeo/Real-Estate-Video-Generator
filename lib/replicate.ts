@@ -16,16 +16,25 @@ export interface VideoModel {
   label: string;
   blurb: string;
   usdPerSecond: number;
+  minDurationS: number;
   maxDurationS: number;
   supportsNegative: boolean;
-  durationField?: string;
+  /** Which input field carries the source photo. Differs per model. */
   imageField: string;
+  /** How length is expressed: seconds, or a frame count at `fps`. */
+  durationField?: 'duration' | 'num_frames';
+  fps?: number;
 }
 
 /**
- * Per-second prices are Replicate's published rates at the time of writing and
- * they do change. `npm run verify:models` re-checks the slugs against the API;
- * the prices still need a human eye on replicate.com/pricing.
+ * Field names, duration limits and negative-prompt support below were read from
+ * each model's own OpenAPI schema on Replicate, not from memory — they differ
+ * more than you would expect (`image` vs `start_image`, seconds vs frames).
+ *
+ * The per-second PRICES are the one thing not machine-checked: Replicate does
+ * not expose them through the API. They are its published rates at the time of
+ * writing and they do change. Verify against replicate.com/pricing before
+ * charging anyone real money, because these numbers set the credit price.
  */
 export const VIDEO_MODELS: Record<string, VideoModel> = {
   kenburns: {
@@ -33,6 +42,7 @@ export const VIDEO_MODELS: Record<string, VideoModel> = {
     label: 'Ken Burns (free)',
     blurb: 'Camera move rendered in your browser from the photo itself. No AI, no key, no cost.',
     usdPerSecond: 0,
+    minDurationS: 1,
     maxDurationS: 15,
     supportsNegative: false,
     imageField: '',
@@ -40,11 +50,16 @@ export const VIDEO_MODELS: Record<string, VideoModel> = {
   'wan-video/wan-2.2-i2v-fast': {
     slug: 'wan-video/wan-2.2-i2v-fast',
     label: 'Wan 2.2 Fast',
-    blurb: 'Cheapest real image-to-video. Good for drafts and for checking a shot list.',
+    blurb: 'Cheapest real image-to-video. Good for drafts and for checking a shot list. Caps at 7s.',
     usdPerSecond: 0.02,
-    maxDurationS: 10,
-    supportsNegative: true,
+    // Schema: num_frames 81–121 at 16fps, so roughly 5.0s to 7.5s. It cannot
+    // reach the 10s or 15s tiers at all, and asking for them used to send an
+    // out-of-range frame count that the model rejected.
+    minDurationS: 5,
+    maxDurationS: 7,
+    supportsNegative: false,
     durationField: 'num_frames',
+    fps: 16,
     imageField: 'image',
   },
   'wan-video/wan-2.5-i2v': {
@@ -52,6 +67,7 @@ export const VIDEO_MODELS: Record<string, VideoModel> = {
     label: 'Wan 2.5',
     blurb: 'The standard choice. Holds architectural lines better than the fast variants.',
     usdPerSecond: 0.05,
+    minDurationS: 5,
     maxDurationS: 10,
     supportsNegative: true,
     durationField: 'duration',
@@ -60,8 +76,9 @@ export const VIDEO_MODELS: Record<string, VideoModel> = {
   'kwaivgi/kling-v3-video': {
     slug: 'kwaivgi/kling-v3-video',
     label: 'Kling v3',
-    blurb: 'Best motion quality and the only one that reaches 15s. Use it on the hero shots.',
+    blurb: 'Best motion quality and the only one that comfortably reaches 15s. Use it on hero shots.',
     usdPerSecond: 0.1,
+    minDurationS: 3,
     maxDurationS: 15,
     supportsNegative: true,
     durationField: 'duration',
@@ -70,14 +87,20 @@ export const VIDEO_MODELS: Record<string, VideoModel> = {
   'xai/grok-imagine-video': {
     slug: 'xai/grok-imagine-video',
     label: 'Grok Imagine',
-    blurb: 'xAI\'s model, via a real API rather than a browser script.',
+    blurb: "xAI's model, via a real API rather than a browser script.",
     usdPerSecond: 0.05,
-    maxDurationS: 10,
+    minDurationS: 1,
+    maxDurationS: 15,
     supportsNegative: false,
     durationField: 'duration',
     imageField: 'image',
   },
 };
+
+/** Clamp a requested length into what this model can actually produce. */
+export function clampDuration(model: VideoModel, durationS: number): number {
+  return Math.min(model.maxDurationS, Math.max(model.minDurationS, durationS));
+}
 
 export const DEFAULT_VIDEO_MODEL = 'wan-video/wan-2.2-i2v-fast';
 
@@ -91,8 +114,17 @@ export interface PredictionResult {
 function buildInput(model: VideoModel, imageUrl: string, prompt: string, durationS: number) {
   const input: Record<string, unknown> = { prompt, [model.imageField]: imageUrl };
   if (model.supportsNegative) input.negative_prompt = NEGATIVE_PROMPT;
-  if (model.durationField === 'num_frames') input.num_frames = Math.round(durationS * 16);
-  else if (model.durationField) input[model.durationField] = durationS;
+
+  const seconds = clampDuration(model, durationS);
+  if (model.durationField === 'num_frames') {
+    const fps = model.fps ?? 16;
+    // The schema's frame bounds are the real constraint; seconds are derived.
+    const min = Math.round(model.minDurationS * fps);
+    const max = Math.round(model.maxDurationS * fps) + 1;
+    input.num_frames = Math.min(max, Math.max(min, Math.round(seconds * fps)));
+  } else if (model.durationField) {
+    input[model.durationField] = seconds;
+  }
   return input;
 }
 
