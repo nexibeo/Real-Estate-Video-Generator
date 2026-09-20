@@ -1,8 +1,33 @@
 # Real Estate Video Project — Project Description
 
-**Status:** design / pre-build
-**Last updated:** 2026-09-01
+**Status:** built — see [README.md](README.md)
+**Last updated:** 2026-09-20 · implemented, see §0
 **Working dir:** `/Users/jeroenerne/Dropbox/Claude/Projects/RealEstateVideoProject`
+
+---
+
+## 0. Build notes — what changed when this was implemented
+
+This document is the original design. The app in this repository implements it, with four
+deliberate departures. Where the two disagree, **the code is right and this section says why**.
+
+| Spec said | Built instead | Why |
+|---|---|---|
+| Drive `grok.com/imagine` through Selenium (§4 Stage 5) | The **Replicate API** (`lib/replicate.ts`) | Replicate carries the same model as a first-party API (`xai/grok-imagine-video`) alongside Wan and Kling. That removes the ToS problem, the bot detection and the breaks-whenever-the-UI-changes problem in one move — and §8.4's "brittleness budget" for the Grok driver disappears with it. |
+| One vision call returns structured room JSON (§4 Stage 3) | **Two passes**: a vision model *describes*, then **Jev** *judges* (`lib/jev.ts`) | Jev is text-only, so the split is forced. But it is also better: Jev returns a probability for every option and a confidence for the answer, which is what §7.5's human-in-the-loop needs to know when to ask. A vision model's free-form JSON gives a label with no honest measure of its own certainty. |
+| Python CLI first, website in phase 2 (§2.10, §12) | **Next.js app directly** | The free tier renders in a browser, which means the browser had to be the runtime anyway. A CLI would have been a second implementation of the same pipeline. |
+| ffmpeg assembly on a server (§4 Stage 8); HTML overlays via headless Chrome (§7.4) | **Canvas + MediaRecorder in the browser** (`lib/render/`) | No render farm, no upload of the user's photos, and the finished video never touches our disk. The cost is that rendering is real-time. See the README on the stall watchdog this makes necessary. |
+
+Two further corrections the build turned up:
+
+- **§2.2 was right that "Gemini Flash 3.7" is not real** — and `google/gemini-3-flash` is not
+  either. The app uses `google/gemini-2.5-flash`.
+- **§9's `isPhotograph` hard drop was wrong.** Excluding anything that is not a photograph of a
+  real place silently threw away every new-build listing advertised with architectural renders.
+  It now only costs a photo the hero slot. Room type is the single hard filter.
+
+The pricing model in §10 stands, with one change: **there is no subscription at all**, only
+credit packs at a flat 10x the measured API cost (`lib/pricing.ts`).
 
 ---
 
