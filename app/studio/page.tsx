@@ -400,7 +400,7 @@ export default function Studio() {
 
         <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-ink-2/60 p-4">
           <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)}
-                 className="mt-0.5 h-4 w-4 accent-[#C8A24A]" />
+                 className="mt-0.5 h-4 w-4 accent-gold" />
           <span className="text-sm leading-relaxed text-mist">
             I own this property or am the authorised agent for this listing, and I have the right to
             use these photos and details to create and publish a promotional video.{' '}
@@ -513,7 +513,7 @@ export default function Studio() {
               <label className="flex cursor-pointer items-center gap-2.5 text-sm text-mist sm:col-span-2">
                 <input type="checkbox" checked={options.captions}
                        onChange={(e) => setOptions({ ...options, captions: e.target.checked })}
-                       className="h-4 w-4 accent-[#C8A24A]" />
+                       className="h-4 w-4 accent-gold" />
                 Burn in captions
               </label>
             </div>

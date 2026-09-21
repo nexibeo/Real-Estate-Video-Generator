@@ -65,7 +65,7 @@ export function Estimator() {
         </label>
         <input type="range" min={0} max={60} step={2} value={photos}
                onChange={(e) => setPhotos(Number(e.target.value))} className="mt-2 w-full" />
-        <p className="mt-1.5 text-xs text-mist/70">Every photo is read once to work out which room it is.</p>
+        <p className="mt-1.5 text-xs text-mist">Every photo is read once to work out which room it is.</p>
 
         <label className="mt-5 block text-sm text-mist">Seconds per shot</label>
         <div className="mt-2 flex gap-2">

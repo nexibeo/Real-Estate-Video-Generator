@@ -3,8 +3,10 @@ import { PipelineDiagram } from '@/components/PipelineDiagram';
 import { VIDEO_MODELS } from '@/lib/replicate';
 import { estimate, fmtUsd } from '@/lib/pricing';
 
+// The free tier as it actually ships: Ken Burns, rooms labelled by hand, no
+// voiceover. Estimating it with narration on showed $0.011 under "Free".
 const free = estimate(
-  { videoModel: 'kenburns', durationS: 6, narrationStyle: 'friendly_host', tier: 'credits' }, 0, 8);
+  { videoModel: 'kenburns', durationS: 6, narrationStyle: 'none', tier: 'credits' }, 0, 8);
 const fast = estimate(
   { videoModel: 'wan-video/wan-2.2-i2v-fast', durationS: 6, narrationStyle: 'friendly_host', tier: 'credits' }, 20, 8);
 
@@ -76,7 +78,7 @@ export default function Home() {
         <div className="mt-8 grid gap-5 md:grid-cols-3">
           <div className="rounded-xl border border-jade/30 bg-jade/5 p-6">
             <div className="text-xs uppercase tracking-wider text-jade">Free</div>
-            <div className="mt-2 font-display text-3xl text-chalk">{fmtUsd(free.apiUsd)}</div>
+            <div className="mt-2 font-display text-3xl text-chalk">${free.apiUsd.toFixed(2)}</div>
             <p className="mt-3 text-sm leading-relaxed text-mist">
               Ken Burns camera moves on your own photos, captions, motion graphics, both aspect
               ratios. Rendered in your browser with no API key at all. You label the rooms yourself.

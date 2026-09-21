@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
                 <div className="flex gap-12">
                   <div>
-                    <div className="mb-2 text-xs uppercase tracking-wider text-mist/60">Product</div>
+                    <div className="mb-2 text-xs uppercase tracking-wider text-mist">Product</div>
                     <ul className="space-y-1.5">
                       <li><a className="hover:text-chalk" href="/studio">Studio</a></li>
                       <li><a className="hover:text-chalk" href="/pricing">Pricing</a></li>
@@ -54,14 +54,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </ul>
                   </div>
                   <div>
-                    <div className="mb-2 text-xs uppercase tracking-wider text-mist/60">Agencies</div>
+                    <div className="mb-2 text-xs uppercase tracking-wider text-mist">Agencies</div>
                     <ul className="space-y-1.5">
                       <li>
                         <a className="text-gold hover:text-chalk" href="https://nexibeo.com" target="_blank" rel="noreferrer">
                           nexibeo.com
                         </a>
                       </li>
-                      <li className="max-w-[16rem] text-xs leading-relaxed text-mist/80">
+                      <li className="max-w-[16rem] text-xs leading-relaxed text-mist">
                         Want this built into your agency&apos;s own systems, with your branding and
                         your listing feed? Nexibeo builds the custom version.
                       </li>
@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </div>
                 </div>
               </div>
-              <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-line/70 pt-6 text-xs text-mist/70">
+              <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-line/70 pt-6 text-xs text-mist">
                 <span>© {new Date().getFullYear()} Videamax</span>
                 <span>You must own or represent every listing you make a video of.</span>
               </div>
