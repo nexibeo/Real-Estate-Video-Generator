@@ -156,8 +156,33 @@ browser's localStorage, ride along as request headers, and are never stored or l
 
 ### Deploying
 
-Vercel, with the domain pointed at it and `NEXT_PUBLIC_SITE_URL=https://videamax.com`. Point a
-Stripe webhook at `/api/stripe/webhook` for `checkout.session.completed`.
+videamax.com runs on **Cloudflare Workers**, adapted by
+[`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare). The domain is registered on the
+same Cloudflare account, so `wrangler.jsonc` attaches `videamax.com` and `www.videamax.com` as
+Custom Domains and Cloudflare creates the DNS records and certificates itself on deploy.
+
+```bash
+npx wrangler login     # once
+npm run deploy         # builds Next.js, adapts it, uploads it
+```
+
+**Deploy from a clean checkout of `main`**, not a working copy with uncommitted changes —
+`npm run deploy` ships whatever is on disk.
+
+One secret is required. The app refuses to issue account cookies without it, so set it before
+anyone buys credits (it signs cookies only; any long random string works):
+
+```bash
+npx wrangler secret put ACCOUNT_COOKIE_SECRET
+```
+
+The optional ones unlock paths as described above: `OPENROUTER_API_KEY` and `REPLICATE_API_TOKEN`
+for credit-paying users, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to sell credits (point a
+Stripe webhook at `https://videamax.com/api/stripe/webhook` for `checkout.session.completed`), and
+`CREDIT_STORE=upstash` with the `UPSTASH_REDIS_REST_*` pair so the ledger survives — on Workers
+the in-memory store is per isolate and will lose balances, so **do not enable Stripe without it**.
+
+`npm run preview` runs the production build locally in `workerd`, the same runtime as production.
 
 ---
 

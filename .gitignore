@@ -12,3 +12,8 @@ next-env.d.ts
 /jobs/
 /scratch/
 .claude/
+
+# Cloudflare / OpenNext
+.open-next
+.wrangler
+.dev.vars

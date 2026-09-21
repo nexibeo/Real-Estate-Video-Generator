@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Deployed with @opennextjs/cloudflare: `npm run deploy` builds Next.js,
+  // adapts it into .open-next/, and uploads that as this Worker.
+  "name": "videamax",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-18",
+  // node:crypto signs the account cookie; nodejs_compat provides it.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "videamax" }
+  ],
+  // Custom Domains: Cloudflare creates the DNS records and the certificates on
+  // deploy. The zone lives in the same account, so nothing is set up by hand.
+  "routes": [
+    { "pattern": "videamax.com", "custom_domain": true },
+    { "pattern": "www.videamax.com", "custom_domain": true }
+  ],
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+  // Secrets are set with `wrangler secret put`, never here. Required:
+  //   ACCOUNT_COOKIE_SECRET — the app refuses to mint accounts without it.
+  // Optional, each unlocks a path (see .env.example):
+  //   OPENROUTER_API_KEY, REPLICATE_API_TOKEN, STRIPE_SECRET_KEY,
+  //   STRIPE_WEBHOOK_SECRET, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+}
