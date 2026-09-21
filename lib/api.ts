@@ -53,19 +53,69 @@ export async function resolveKey(req: Request, provider: Provider): Promise<Reso
   return { key: serverKey, mode: 'credits', accountId };
 }
 
-/** Charge for one operation. No-op in BYOK mode — they are paying the provider directly. */
-export async function charge(r: Resolved, apiUsd: number, reason: string): Promise<number | null> {
+/**
+ * Charge for one operation; returns the new balance, or null in BYOK mode,
+ * where the user pays the provider directly. Prefer billed() for new code —
+ * it refunds automatically when the work fails.
+ */
+export async function charge(r: Resolved, apiUsd: number, reason: string, ref?: string): Promise<number | null> {
   if (r.mode === 'byok') return null;
-  const credits = Math.max(1, Math.ceil(apiUsd * MARKUP * CREDITS_PER_USD));
-  const balance = await getStore().debit(r.accountId, credits, reason);
-  if (balance === null) {
-    throw new ApiError(
-      `Not enough credits — this step costs ${credits}. Top up on the Credits page, or add your own API key in Settings.`,
-      402,
-      'insufficient_credits',
-    );
-  }
+  const credits = creditsFor(apiUsd);
+  const balance = await getStore().debit(r.accountId, credits, reason, ref);
+  if (balance === null) throw insufficient(credits);
   return balance;
+}
+
+export function creditsFor(apiUsd: number): number {
+  return Math.max(1, Math.ceil(apiUsd * MARKUP * CREDITS_PER_USD));
+}
+
+export function insufficient(credits: number): ApiError {
+  return new ApiError(
+    `Not enough credits — this step costs ${credits}. Top up on the Credits page, or add your own API key in Settings.`,
+    402,
+    'insufficient_credits',
+  );
+}
+
+/**
+ * Charge, do the work, and give the credits back if the work fails.
+ *
+ * Credits are taken up front so a balance can't be spent twice by two
+ * requests at once — but a provider outage must not bill anyone for work they
+ * never got, so any failure hands the charge straight back.
+ */
+export async function billed<T>(
+  r: Resolved,
+  apiUsd: number,
+  reason: string,
+  work: () => Promise<T>,
+): Promise<{ result: T; balance: number | null }> {
+  const balance = await charge(r, apiUsd, reason);
+  try {
+    return { result: await work(), balance };
+  } catch (e) {
+    if (r.mode === 'credits') {
+      await getStore()
+        .credit(r.accountId, creditsFor(apiUsd), `refund — ${reason} failed`)
+        .catch((err) => console.error('[billing] refund failed', err));
+    }
+    throw e;
+  }
+}
+
+/**
+ * Refund whatever was charged under `ref`, at most once — for work that fails
+ * after the request that paid for it has finished (a video clip). The refund
+ * goes to the account the ledger says was charged, never to whoever asked, and
+ * the UNIQUE refund ref makes repeated calls harmless.
+ */
+export async function refundByRef(ref: string, why: string): Promise<boolean> {
+  const store = getStore();
+  const c = await store.findCharge(ref);
+  if (!c) return false;
+  await store.credit(c.accountId, c.credits, `refund — ${why}`, `refund:${ref}`);
+  return true;
 }
 
 export function fail(e: unknown) {

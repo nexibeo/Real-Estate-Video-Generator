@@ -134,6 +134,8 @@ export async function startPrediction(
   imageUrl: string,
   prompt: string,
   durationS: number,
+  /** Called by Replicate when the prediction finishes, whatever the outcome. */
+  webhook?: string,
 ): Promise<PredictionResult> {
   const model = VIDEO_MODELS[modelSlug];
   if (!model) throw new Error(`Unknown video model: ${modelSlug}`);
@@ -144,7 +146,10 @@ export async function startPrediction(
       'Content-Type': 'application/json',
       Prefer: 'respond-async',
     },
-    body: JSON.stringify({ input: buildInput(model, imageUrl, prompt, durationS) }),
+    body: JSON.stringify({
+      input: buildInput(model, imageUrl, prompt, durationS),
+      ...(webhook ? { webhook, webhook_events_filter: ['completed'] } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`Replicate ${res.status}: ${(await res.text()).slice(0, 300)}`);
   return res.json();
@@ -161,4 +166,16 @@ export async function getPrediction(token: string, id: string): Promise<Predicti
 export function outputUrl(p: PredictionResult): string | undefined {
   if (!p.output) return undefined;
   return Array.isArray(p.output) ? p.output[p.output.length - 1] : p.output;
+}
+
+export async function cancelPrediction(token: string, id: string): Promise<void> {
+  await fetch(`${API}/predictions/${id}/cancel`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/** Replicate's own record of what a prediction was asked to make, for pricing it after the fact. */
+export function isFailed(p: PredictionResult): boolean {
+  return p.status === 'failed' || p.status === 'canceled';
 }

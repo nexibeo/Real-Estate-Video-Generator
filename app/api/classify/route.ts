@@ -5,7 +5,7 @@
 import { NextResponse } from 'next/server';
 import { describePhoto } from '@/lib/openrouter';
 import { classifyWithJev } from '@/lib/jev';
-import { resolveKey, charge, fail } from '@/lib/api';
+import { resolveKey, billed, fail } from '@/lib/api';
 import { VISION_COST_PER_PHOTO } from '@/lib/pricing';
 import { JEV_COST_PER_PHOTO } from '@/lib/jev';
 
@@ -17,12 +17,13 @@ export async function POST(req: Request) {
     if (!dataUrl) throw new Error('dataUrl is required');
 
     const r = await resolveKey(req, 'openrouter');
-    const balance = await charge(r, VISION_COST_PER_PHOTO + JEV_COST_PER_PHOTO, 'classify photo');
+    const { result, balance } = await billed(r, VISION_COST_PER_PHOTO + JEV_COST_PER_PHOTO, 'classify photo', async () => {
+      const read = await describePhoto(r.key, dataUrl);
+      const decision = await classifyWithJev(r.key, read, caption);
+      return { ...read, ...decision };
+    });
 
-    const read = await describePhoto(r.key, dataUrl);
-    const decision = await classifyWithJev(r.key, read, caption);
-
-    return NextResponse.json({ photoId, ...read, ...decision, balance });
+    return NextResponse.json({ photoId, ...result, balance });
   } catch (e) {
     return fail(e);
   }

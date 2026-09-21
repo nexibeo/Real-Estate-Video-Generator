@@ -23,6 +23,8 @@ export interface CreditStore {
   credit(accountId: string, amount: number, reason: string, ref?: string): Promise<number>;
   /** Returns the new balance, or null when there is not enough to spend. */
   debit(accountId: string, amount: number, reason: string, ref?: string): Promise<number | null>;
+  /** The debit recorded under `ref`, if any — for refunds that happen out of band. */
+  findCharge(ref: string): Promise<{ accountId: string; credits: number } | null>;
 }
 
 class MemoryStore implements CreditStore {
@@ -46,6 +48,14 @@ class MemoryStore implements CreditStore {
     l.push({ at: Date.now(), delta: amount, reason, ref });
     this.log.set(id, l);
     return next;
+  }
+
+  async findCharge(ref: string) {
+    for (const [accountId, entries] of this.log) {
+      const e = entries.find((x) => x.ref === ref && x.delta < 0);
+      if (e) return { accountId, credits: -e.delta };
+    }
+    return null;
   }
 
   async debit(id: string, amount: number, reason: string, ref?: string) {
@@ -104,7 +114,15 @@ class UpstashStore implements CreditStore {
       return null;
     }
     await this.append(id, { at: Date.now(), delta: -amount, reason, ref });
+    if (ref) {
+      await this.cmd('SET', `charge:${ref}`, JSON.stringify({ accountId: id, credits: amount }), 'EX', 60 * 60 * 24 * 90);
+    }
     return next;
+  }
+
+  async findCharge(ref: string) {
+    const raw = await this.cmd<string | null>('GET', `charge:${ref}`);
+    return raw ? (JSON.parse(raw) as { accountId: string; credits: number }) : null;
   }
 }
 
@@ -186,6 +204,14 @@ class D1Store implements CreditStore {
       .bind(id, Date.now(), -amount, reason, ref ?? null)
       .run();
     return row.credits;
+  }
+
+  async findCharge(ref: string) {
+    const row = await this.db()
+      .prepare('SELECT account_id, delta FROM credit_ledger WHERE ref = ?1 AND delta < 0')
+      .bind(ref)
+      .first<{ account_id: string; delta: number }>();
+    return row ? { accountId: row.account_id, credits: -row.delta } : null;
   }
 }
 
