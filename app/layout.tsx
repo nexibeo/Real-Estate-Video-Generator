@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Nav } from '@/components/Nav';
+import { Analytics } from '@/components/Analytics';
+import { ConsentBanner, ConsentReset } from '@/components/ConsentBanner';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://videamax.com'),
@@ -25,9 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen">
+        <Analytics />
         <div className="relative z-10">
           <Nav />
           {children}
+          <ConsentBanner />
           <footer className="mt-24 border-t border-line/70">
             <div className="mx-auto max-w-6xl px-6 py-10 text-sm text-mist">
               <div className="flex flex-wrap items-start justify-between gap-8">
@@ -46,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <li><a className="hover:text-chalk" href="/pricing">Pricing</a></li>
                       <li><a className="hover:text-chalk" href="/credits">Credits</a></li>
                       <li><a className="hover:text-chalk" href="/settings">API keys</a></li>
+                      <li><ConsentReset /></li>
                     </ul>
                   </div>
                   <div>

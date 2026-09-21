@@ -11,6 +11,7 @@ import { buildPrompt } from '@/lib/prompts';
 import { VIDEO_MODELS } from '@/lib/replicate';
 import { estimate, fmtUsd } from '@/lib/pricing';
 import { render, outputExtension, type RenderShot } from '@/lib/render/engine';
+import * as analytics from '@/lib/analytics';
 import { ROOM_LABELS, type RoomType } from '@/lib/taxonomy';
 import {
   DEFAULT_OPTIONS, EMPTY_LISTING,
@@ -80,7 +81,13 @@ export default function Studio() {
         found.push(d as Analysis);
         setAnalyses([...found]);
       }
-      buildShots(found);
+      const planned = buildShots(found);
+      analytics.roomsClassified({
+        method: 'auto',
+        photos: photos.length,
+        shots: planned.length,
+        needsReview: found.filter((a) => a.needsReview).length,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Classification failed');
     } finally {
@@ -110,7 +117,10 @@ export default function Studio() {
       model: 'filename',
     }));
     setAnalyses(guessed);
-    buildShots(guessed);
+    const planned = buildShots(guessed);
+    analytics.roomsClassified({
+      method: 'manual', photos: photos.length, shots: planned.length, needsReview: 0,
+    });
   }
 
   function buildShots(from: Analysis[]) {
@@ -120,6 +130,7 @@ export default function Studio() {
       expectedBedrooms: Number(listing.beds) || undefined,
     });
     setShots(planned);
+    return planned;
   }
 
   function patchShot(id: string, patch: Partial<Shot>) {
@@ -270,6 +281,7 @@ export default function Studio() {
     const made: typeof outputs = [];
 
     for (const aspect of options.aspects) {
+      const startedAt = performance.now();
       const input = {
         listing,
         options,
@@ -298,19 +310,48 @@ export default function Studio() {
         size: blob.size,
       });
       setOutputs([...made]);
+      analytics.renderCompleted({
+        engine: options.videoModel,
+        aspect,
+        video_seconds: Math.round(enabled.reduce((n, s) => n + s.durationS, 0)),
+        wall_seconds: Math.round((performance.now() - startedAt) / 1000),
+        megabytes: Number((blob.size / 1_000_000).toFixed(2)),
+        container: outputExtension(mime),
+      });
     }
   }
 
   async function run() {
     setError('');
     setOutputs([]);
+    analytics.renderStarted({
+      tier: options.tier,
+      engine: options.videoModel,
+      shots: enabled.length,
+      duration_s: options.durationS,
+      resolution: options.resolution,
+      aspects: options.aspects.join('+'),
+      narration: options.narrationStyle,
+      captions: options.captions,
+      template: options.templatePack,
+    });
+    let stage = 'narration';
     try {
       await makeNarration();
+      stage = 'clips';
       await makeClips();
+      stage = 'render';
       await renderAll();
       setStatus('Done');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
+      // Only a reason code is reported; the message itself can carry a key
+      // fragment or a signed URL, so it stays in the browser.
+      analytics.renderFailed({
+        stage,
+        engine: options.videoModel,
+        reason: analytics.classifyFailure(e),
+      });
     } finally {
       setPhase('idle');
       setProgress(0);
@@ -330,7 +371,10 @@ export default function Studio() {
       <Section n="01" title="Your photos">
         <Uploader
           photos={photos}
-          onAdd={(p) => reset([...photos, ...p])}
+          onAdd={(p) => {
+            reset([...photos, ...p]);
+            analytics.photosAdded(p.length, photos.length + p.length);
+          }}
           onRemove={(id) => reset(photos.filter((x) => x.id !== id))}
         />
       </Section>

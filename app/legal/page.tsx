@@ -66,6 +66,27 @@ export default function Legal() {
         </section>
 
         <section>
+          <h2 className="font-display text-2xl text-chalk">What we measure</h2>
+          <p className="mt-3">
+            If you allow it, Google Analytics counts page views and records which options get
+            chosen — the engine, the number of shots, the length, whether captions were on,
+            whether a render finished. That is how we know which parts are worth improving.
+          </p>
+          <p className="mt-3">
+            What it never receives: your photos, your listing details, an address, a price, an
+            agent name, or any part of an API key. None of those reach our servers either, so
+            there is nothing to forward even by accident. When a render fails we log a reason
+            code from a fixed list rather than the error text, because an error message can
+            carry a key fragment or a signed URL.
+          </p>
+          <p className="mt-3">
+            Nothing is measured until you say yes, and declining is one click. If your browser
+            sends a Global Privacy Control or Do Not Track signal we treat that as a no and never
+            ask. You can change your mind at any time from the link in the footer.
+          </p>
+        </section>
+
+        <section>
           <h2 className="font-display text-2xl text-chalk">Taking something down</h2>
           <p className="mt-3">
             If a video was made from photos that were not the maker&apos;s to use, write to us and

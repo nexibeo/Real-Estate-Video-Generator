@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { loadKeys, saveKeys, clearKeys, type Keys } from '@/lib/keys';
+import { keysSaved } from '@/lib/analytics';
 
 export default function Settings() {
   const [keys, setKeys] = useState<Keys>({ openrouter: '', replicate: '' });
@@ -13,6 +14,11 @@ export default function Settings() {
 
   function save() {
     saveKeys(keys);
+    // Whether each key is present, never any part of its value.
+    keysSaved({
+      openrouter: Boolean(keys.openrouter.trim()),
+      replicate: Boolean(keys.replicate.trim()),
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2200);
   }

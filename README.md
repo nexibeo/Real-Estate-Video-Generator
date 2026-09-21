@@ -149,6 +149,7 @@ Every variable is optional; each one unlocks a path.
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Selling credits |
 | `ACCOUNT_COOKIE_SECRET` | Required in production — signs the anonymous account cookie |
 | `CREDIT_STORE=upstash` + `UPSTASH_REDIS_REST_*` | A credit ledger that survives a restart |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Overrides the built-in GA4 property. Not needed: the production ID is committed and reports **only on videamax.com**, so forks and `npm run dev` send nothing |
 
 Users who paste their own keys in `/settings` never touch the server's. Those keys live in that
 browser's localStorage, ride along as request headers, and are never stored or logged by us.
@@ -183,6 +184,16 @@ locked to Replicate's delivery hosts.
 photo descriptions and instructed that those are the only facts it may use. It is separately
 constrained against US fair-housing language. A false claim in an advertisement is the agent's
 licence at risk, so this is the default with no switch to turn it off.
+
+**Analytics cannot leak the thing the product promises to protect.** The event API in
+`lib/analytics.ts` accepts only primitives describing the *shape* of a job — counts, tiers, engine
+names, durations — and there is deliberately no generic `track(name, anyObject)` to reach for in a
+hurry. Failures are reported as one of a fixed set of reason codes, never the error text, because
+a message can carry a key fragment or a signed URL. Consent is denied by default under Consent
+Mode v2, Global Privacy Control and Do Not Track are honoured as a standing no, and no event is
+sent until a visitor opts in. And because this repository is public, the committed Measurement ID
+only switches on when the page is served from videamax.com — a fork, a preview deploy or
+`npm run dev` never loads the tag and never reports into the production property.
 
 **Credits are only ever created by the Stripe webhook**, verified against the raw body, and made
 idempotent on the Stripe event id — because the failure that matters is double-crediting a retry.
@@ -219,6 +230,7 @@ lib/
   jev.ts              the decisions call and its confidence thresholds
   planner.ts          grouping, hero selection, narrative order
   pricing.ts          the cost model — one source for every price shown
+  analytics.ts        GA4 events, consent, and the no-PII event API
   render/             kenburns · template · overlays · engine
 ```
 

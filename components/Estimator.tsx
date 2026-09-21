@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { VIDEO_MODELS } from '@/lib/replicate';
 import { estimate, fmtUsd, MARKUP, PACKS } from '@/lib/pricing';
 import type { Duration, NarrationStyle } from '@/lib/types';
+import { estimatorUsed } from '@/lib/analytics';
 
 export function Estimator() {
   const [model, setModel] = useState('wan-video/wan-2.2-i2v-fast');
@@ -20,7 +21,22 @@ export function Estimator() {
     [model, effective, narration, photos, shots],
   );
 
-  const videos = (usd: number) => (est.chargedUsd > 0 ? Math.floor(usd / est.chargedUsd) : Infinity);
+  // Dragging a slider fires dozens of renders; only the settled value is worth
+  // an event, so it waits for the controls to stop moving. The defaults on
+  // first paint are not a use of the estimator at all — counting them would
+  // just be a second page-view metric — so nothing is sent until the values
+  // differ from where they started. (Comparing values rather than skipping the
+  // first effect run, because StrictMode runs effects twice on mount.)
+  const initial = useRef({ model, shots, effective });
+  useEffect(() => {
+    const i = initial.current;
+    if (model === i.model && shots === i.shots && effective === i.effective) return;
+    const t = setTimeout(
+      () => estimatorUsed({ engine: model, shots, duration_s: effective }),
+      1200,
+    );
+    return () => clearTimeout(t);
+  }, [model, shots, effective]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">

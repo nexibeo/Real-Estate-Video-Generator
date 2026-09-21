@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PACKS } from '@/lib/pricing';
+import { checkoutStarted } from '@/lib/analytics';
 
 interface Entry { at: number; delta: number; reason: string }
 
@@ -31,6 +32,8 @@ export default function Credits() {
   async function buy(usd: number) {
     setBusy(usd);
     setError('');
+    const pack = PACKS.find((p) => p.usd === usd);
+    if (pack) checkoutStarted(pack.usd, pack.credits);
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
