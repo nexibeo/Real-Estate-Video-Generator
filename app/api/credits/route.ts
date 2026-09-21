@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAccountId } from '@/lib/account';
 import { getStore } from '@/lib/credits';
 import { fail } from '@/lib/api';
+import { paymentReadiness } from '@/lib/payments';
 
 export async function GET() {
   try {
@@ -11,7 +12,8 @@ export async function GET() {
       accountId: id,
       balance: await store.balance(id),
       history: await store.history(id),
-      stripeEnabled: Boolean(process.env.STRIPE_SECRET_KEY),
+      // Only whether credits can be bought — never which setting is missing.
+      stripeEnabled: paymentReadiness().ready,
     });
   } catch (e) {
     return fail(e);

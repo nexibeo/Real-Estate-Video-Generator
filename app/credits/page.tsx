@@ -74,13 +74,14 @@ export default function Credits() {
         </div>
       </div>
 
-      {!stripeEnabled && (
-        <div className="mt-6 rounded-lg border border-line bg-ink-2/60 p-4 text-sm text-mist">
-          <strong className="text-chalk">Stripe is not configured on this deployment.</strong> Set{' '}
-          <code className="font-mono text-xs text-gold">STRIPE_SECRET_KEY</code> and{' '}
-          <code className="font-mono text-xs text-gold">STRIPE_WEBHOOK_SECRET</code> to take
-          payments. Until then, use the free tier or{' '}
-          <Link href="/settings" className="text-gold hover:underline">your own API keys</Link>.
+      {!stripeEnabled && balance !== null && (
+        <div className="mt-6 rounded-lg border border-line bg-ink-2/60 p-4 text-sm leading-relaxed text-mist">
+          <strong className="text-chalk">Credit packs aren&apos;t on sale just yet.</strong> Everything
+          else works today: the{' '}
+          <Link href="/studio" className="text-gold hover:underline">free tier</Link> needs nothing at
+          all, and with{' '}
+          <Link href="/settings" className="text-gold hover:underline">your own API keys</Link> you pay
+          the providers directly, at cost.
         </div>
       )}
 

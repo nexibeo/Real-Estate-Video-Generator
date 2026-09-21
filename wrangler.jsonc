@@ -20,6 +20,20 @@
     { "pattern": "videamax.com", "custom_domain": true },
     { "pattern": "www.videamax.com", "custom_domain": true }
   ],
+  // The credit ledger (lib/credits.ts, schema in migrations/). D1 rather than
+  // KV because balances need transactions and a conditional debit; KV is
+  // eventually consistent and would let two requests spend the same credit.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "videamax-credits",
+      "database_id": "fc9b789c-2e78-4d97-beb4-9f16542bce2f",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "CREDIT_STORE": "d1"
+  },
   "observability": { "enabled": true, "head_sampling_rate": 1 }
   // Secrets are set with `wrangler secret put`, never here. Required:
   //   ACCOUNT_COOKIE_SECRET — the app refuses to mint accounts without it.

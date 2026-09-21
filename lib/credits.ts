@@ -1,10 +1,15 @@
 /**
  * The credit ledger.
  *
- * Two stores behind one interface: an in-memory map for local development, and
- * Upstash Redis REST for production. Swapping in Postgres means implementing
- * four methods. Balances are integers — credits, never floats of dollars.
+ * Three stores behind one interface. In-memory for local development; D1 on
+ * Cloudflare, which is what videamax.com runs; and Upstash Redis REST for any
+ * other host. Balances are integers — credits, never floats of dollars.
+ *
+ * The in-memory store is per process — on Workers, per isolate — so it loses
+ * balances on every restart. It must never back real payments, and
+ * lib/payments.ts refuses to open checkout while it is the active store.
  */
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 export interface LedgerEntry {
   at: number;
   delta: number;
@@ -103,12 +108,100 @@ class UpstashStore implements CreditStore {
   }
 }
 
+/* ── D1 ───────────────────────────────────────────────────────────────────────
+ * Schema in migrations/0001_credit_ledger.sql. Just the D1 surface used here,
+ * declared locally rather than pulling in the full workers-types package.
+ */
+interface D1Statement {
+  bind(...values: unknown[]): D1Statement;
+  first<T>(): Promise<T | null>;
+  all<T>(): Promise<{ results: T[] }>;
+  run(): Promise<unknown>;
+}
+interface D1Database {
+  prepare(query: string): D1Statement;
+  batch(statements: D1Statement[]): Promise<unknown[]>;
+}
+
+class D1Store implements CreditStore {
+  private db(): D1Database {
+    const db = (getCloudflareContext().env as { DB?: D1Database }).DB;
+    if (!db) throw new Error('CREDIT_STORE=d1 but no DB binding is configured');
+    return db;
+  }
+
+  async balance(id: string) {
+    const row = await this.db()
+      .prepare('SELECT credits FROM credit_balances WHERE account_id = ?1')
+      .bind(id)
+      .first<{ credits: number }>();
+    return row?.credits ?? 0;
+  }
+
+  async history(id: string) {
+    const { results } = await this.db()
+      .prepare('SELECT at, delta, reason, ref FROM credit_ledger WHERE account_id = ?1 ORDER BY id DESC LIMIT 50')
+      .bind(id)
+      .all<{ at: number; delta: number; reason: string; ref: string | null }>();
+    return results.map((r) => ({ at: r.at, delta: r.delta, reason: r.reason, ref: r.ref ?? undefined }));
+  }
+
+  /**
+   * The ledger row and the balance change go in one batch, which D1 runs as a
+   * single transaction. `ref` is UNIQUE, so a retried Stripe webhook fails the
+   * first statement, the whole batch rolls back, and the credit is not applied
+   * twice — the database enforces it, not a read-then-write in this code.
+   */
+  async credit(id: string, amount: number, reason: string, ref?: string) {
+    const db = this.db();
+    try {
+      await db.batch([
+        db.prepare('INSERT INTO credit_ledger (account_id, at, delta, reason, ref) VALUES (?1, ?2, ?3, ?4, ?5)')
+          .bind(id, Date.now(), amount, reason, ref ?? null),
+        db.prepare(
+          'INSERT INTO credit_balances (account_id, credits) VALUES (?1, ?2) ' +
+          'ON CONFLICT(account_id) DO UPDATE SET credits = credits + excluded.credits',
+        ).bind(id, amount),
+      ]);
+    } catch (e) {
+      if (ref && /UNIQUE/i.test(e instanceof Error ? e.message : String(e))) return this.balance(id);
+      throw e;
+    }
+    return this.balance(id);
+  }
+
+  /** One conditional UPDATE: it cannot take a balance below zero, even under concurrency. */
+  async debit(id: string, amount: number, reason: string, ref?: string) {
+    const db = this.db();
+    const row = await db
+      .prepare(
+        'UPDATE credit_balances SET credits = credits - ?1 ' +
+        'WHERE account_id = ?2 AND credits >= ?1 RETURNING credits',
+      )
+      .bind(amount, id)
+      .first<{ credits: number }>();
+    if (!row) return null;
+    await db
+      .prepare('INSERT INTO credit_ledger (account_id, at, delta, reason, ref) VALUES (?1, ?2, ?3, ?4, ?5)')
+      .bind(id, Date.now(), -amount, reason, ref ?? null)
+      .run();
+    return row.credits;
+  }
+}
+
 let store: CreditStore | null = null;
+
+/** True when balances survive a restart — the precondition for taking money. */
+export function isDurableStore(): boolean {
+  return process.env.CREDIT_STORE === 'd1' || process.env.CREDIT_STORE === 'upstash';
+}
 
 export function getStore(): CreditStore {
   if (store) return store;
   const { CREDIT_STORE, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = process.env;
-  if (CREDIT_STORE === 'upstash' && UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
+  if (CREDIT_STORE === 'd1') {
+    store = new D1Store();
+  } else if (CREDIT_STORE === 'upstash' && UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
     store = new UpstashStore(UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN);
   } else {
     store = new MemoryStore();

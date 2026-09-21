@@ -176,11 +176,20 @@ anyone buys credits (it signs cookies only; any long random string works):
 npx wrangler secret put ACCOUNT_COOKIE_SECRET
 ```
 
-The optional ones unlock paths as described above: `OPENROUTER_API_KEY` and `REPLICATE_API_TOKEN`
-for credit-paying users, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to sell credits (point a
-Stripe webhook at `https://videamax.com/api/stripe/webhook` for `checkout.session.completed`), and
-`CREDIT_STORE=upstash` with the `UPSTASH_REDIS_REST_*` pair so the ledger survives — on Workers
-the in-memory store is per isolate and will lose balances, so **do not enable Stripe without it**.
+Credits are stored in **D1** (`videamax-credits`, bound as `DB`, schema in `migrations/`). The
+ledger enforces the two properties that matter with real money in the database itself: a balance
+can never go below zero (a `CHECK` plus a conditional `UPDATE`), and a Stripe checkout session can
+only ever be credited once (a `UNIQUE` ref, with the credit written in one transaction).
+
+**Checkout only opens when every part of honouring a purchase is in place** — `lib/payments.ts`
+checks for `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, a durable ledger, and the
+`OPENROUTER_API_KEY` and `REPLICATE_API_TOKEN` that paid work runs on. Until then the credits page
+says packs aren't on sale yet, rather than taking money for work the server can't do.
+
+The Stripe webhook points at `https://videamax.com/api/stripe/webhook` for
+`checkout.session.completed` and `checkout.session.async_payment_succeeded`. The Stripe account
+is shared with other products, so it only acts on sessions stamped `metadata.app = videamax`
+whose amount matches a real pack; everything else is acknowledged and ignored.
 
 `npm run preview` runs the production build locally in `workerd`, the same runtime as production.
 
